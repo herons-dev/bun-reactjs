@@ -1,7 +1,9 @@
 {
   "name": "bun-reactjs",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "homepage": "https://github.com/herons-dev/bun-reactjs",
+  "description": "This is a BunJS template for ReactJS applications with built-in ESLint and TypeScript support. It utilizes the Bun runtime for a performant and lightweight development experience.",
+  "keywords": ["bun", "reactjs", "typescript", "sass"],
   "author": {
     "name": "Herons",
     "email": "contact@herons.dev",
