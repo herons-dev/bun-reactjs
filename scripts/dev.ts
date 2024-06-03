@@ -53,6 +53,7 @@ let parsedHtml = HTML;
 let buildTimeout: Timer;
 let sockets: ServerWebSocket[] = [];
 let isBuilding = false;
+const watchers: fs.FSWatcher[] = [];
 
 async function build() {
   const lintResult = await lintByCommand();
@@ -143,22 +144,26 @@ function watchListener(_: WatchEventType, filename: string | null) {
 }
 
 ["libraries", "scripts", "source"].forEach((fp) => {
-  fs.watch(
-    path.join(__dirname, "..", fp),
-    {recursive: true},
-    (_: WatchEventType, filename: string | null) => {
-      watchListener(_, fp + "/" + (filename ?? ""));
-    },
+  watchers.push(
+    fs.watch(
+      path.join(__dirname, "..", fp),
+      {recursive: true},
+      (_: WatchEventType, filename: string | null) => {
+        watchListener(_, fp + "/" + (filename ?? ""));
+      },
+    ),
   );
 });
 
-fs.watch(path.join(__dirname, "..", "eslint.config.js"), {recursive: true}, watchListener);
+watchers.push(
+  fs.watch(path.join(__dirname, "..", "eslint.config.js"), {recursive: true}, watchListener),
+);
 
 build().catch((e: unknown) => {
   console.error(e);
 });
 
-Bun.serve({
+const server = Bun.serve({
   hostname: HOSTNAME,
   port: PORT,
   reusePort: true,
@@ -195,4 +200,13 @@ Bun.serve({
       sockets = sockets.filter((w) => w !== ws);
     },
   },
+});
+
+process.on("SIGINT", () => {
+  server.stop(true);
+  watchers.forEach((w) => {
+    w.close();
+  });
+
+  process.exit(0);
 });
