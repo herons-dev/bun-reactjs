@@ -1,4 +1,12 @@
 {
+  "name": "bun-reactjs",
+  "version": "1.0.0",
+  "homepage": "https://github.com/herons-dev/bun-reactjs",
+  "author": {
+    "name": "Herons",
+    "email": "contact@herons.dev",
+    "url": "https://www.herons.dev"
+  },
   "type": "module",
   "dependencies": {
     "luxon": "^3.4.4",
