@@ -1,7 +1,7 @@
 import {ESLint} from "eslint";
 import * as path from "path";
-import {DateTime} from "luxon";
-import {$} from "bun";
+import {$, type ShellOutput} from "bun";
+import Watcher from "@libraries/watcher.ts";
 
 const basePath = path.join(__dirname, "..") + "/";
 const severities: Record<number, string> = {
@@ -11,7 +11,7 @@ const severities: Record<number, string> = {
 };
 
 async function lint() {
-  const start = DateTime.now();
+  const w = Watcher.newAndStart("Linting... ");
   let eslint: ESLint | null = new ESLint({
     cache: true,
     cwd: path.join(__dirname, ".."),
@@ -20,13 +20,14 @@ async function lint() {
     overrideConfigFile: "eslint.config.js",
   });
 
-  const results = await eslint.lintFiles([
+  let results: ESLint.LintResult[] | null = await eslint.lintFiles([
     "libraries/**/*.{ts,tsx,js,jsx}",
     "scripts/**/*.{ts,tsx,js,jsx}",
     "source/**/*.{ts,tsx,js,jsx}",
   ]);
 
   eslint = null;
+  const lintTime = w.getRanTimeFixed(2);
 
   const problems = results.reduce(
     (acc, result) => acc + result.errorCount + result.warningCount,
@@ -34,6 +35,7 @@ async function lint() {
   );
 
   if (problems > 0) {
+    console.error("Error (" + lintTime + "s)");
     let i = 0;
 
     results.forEach((r) => {
@@ -59,33 +61,39 @@ async function lint() {
       });
     });
 
-    console.error("ESLint: Errors found (" + (Math.abs(start.diffNow().get("milliseconds")) / 1000).toFixed(2) + ")");
+    results = null;
     return false;
   } else {
-    console.info("ESLint: No errors found (" + (Math.abs(start.diffNow().get("milliseconds")) / 1000).toFixed(2) + ")");
+    console.info("Done (" + lintTime + "s)");
     return true;
   }
 }
 
 async function lintByCommand() {
-  const start = DateTime.now();
-  console.info("ESLint: Start");
+  const w = Watcher.newAndStart("Linting... ");
+  let output: ShellOutput | null = null;
+  let success = false;
 
   try {
-    const output = await $`bun --silent run lint`;
-
-    if (output.stdout.length > 0) {
-      console.info(output.stdout);
-    }
-
-    console.info("ESLint: Finish (" + (Math.abs(start.diffNow().get("milliseconds")) / 1000).toFixed(2) + "s)");
-    return true;
+    output = await $`bun --silent run lint`;
+    success = true;
     // eslint-disable-next-line
   } catch (e: unknown) {
-    console.error("ESLint: Errors found");
   }
 
-  return false;
+  const lintTime = w.getRanTimeFixed(2);
+
+  if (success) {
+    console.info("Done (" + lintTime + ")s");
+  } else {
+    console.error("Error (" + lintTime + ")s");
+  }
+
+  if (output && output.stdout.length > 0) {
+    console.info(output.stdout);
+  }
+
+  return success;
 }
 
 export {

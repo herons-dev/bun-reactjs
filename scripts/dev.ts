@@ -3,7 +3,7 @@ import type {WatchEventType} from "fs";
 import * as fs from "fs";
 import {$, type Server, type ServerWebSocket} from "bun";
 import {DateTime} from "luxon";
-import {lintByCommand} from "@libraries/eslint.ts";
+import {lint} from "@libraries/eslint.ts";
 
 const HOSTNAME = process.env["HOST"] ?? "127.0.0.1";
 const PORT = parseInt(process.env["PORT"] ?? "1290");
@@ -56,7 +56,7 @@ let isBuilding = false;
 const watchers: fs.FSWatcher[] = [];
 
 async function build() {
-  const lintResult = await lintByCommand();
+  const lintResult = await lint();
 
   if (!lintResult) {
     return false;
@@ -110,7 +110,7 @@ function watchListener(_: WatchEventType, filename: string | null) {
     console.info("--- " + DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss") + " ---");
 
     if (filename?.startsWith("scripts/")) {
-      lintByCommand().catch((e: unknown) => {
+      lint().catch((e: unknown) => {
         console.error(e);
       });
       return;
@@ -124,6 +124,8 @@ function watchListener(_: WatchEventType, filename: string | null) {
           return;
         }
 
+        process.stdout.write("Sending reload signal... ");
+
         sockets.forEach((ws) => {
           if (ws.readyState !== 1) {
             return;
@@ -132,7 +134,7 @@ function watchListener(_: WatchEventType, filename: string | null) {
           ws.sendText("reload");
         });
 
-        console.info("Watcher: Send reload signal");
+        console.info("Done");
       })
       .catch((e: unknown) => {
         console.error(e);

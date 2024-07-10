@@ -1,8 +1,8 @@
 import type {BuildConfig} from "bun";
 import * as path from "path";
 import * as fs from "fs";
-import {DateTime} from "luxon";
 import {sassCompilePlugin, sassPostProcessing} from "@libraries/buildPlugins/sass.ts";
+import Watcher from "@libraries/watcher.ts";
 
 const basePath = path.join(__dirname, "..") + "/";
 
@@ -24,6 +24,7 @@ async function build(config?: Partial<BuildConfig>): Promise<string[] | null> {
   };
 
   const outPath = path.join(basePath, finalConfig.outdir ?? "dist") + "/";
+  const w = Watcher.newAndStart("Building... ");
 
   try {
     fs.rmSync(outPath, {
@@ -32,9 +33,14 @@ async function build(config?: Partial<BuildConfig>): Promise<string[] | null> {
     });
 
     const outputAssets: string[] = [];
-    const start = DateTime.now();
-    console.info("Build: Start");
     const o = await Bun.build(finalConfig);
+
+    o.outputs.forEach((output) => {
+      sassPostProcessing(output);
+    });
+
+    w.stop();
+    console.info("Done (" + w.getRanTimeFixed(2) + "s)");
 
     o.logs.forEach((log) => {
       if (log.level === "error") {
@@ -46,19 +52,17 @@ async function build(config?: Partial<BuildConfig>): Promise<string[] | null> {
       }
     });
 
-    o.outputs.forEach((output) => {
-      sassPostProcessing(output);
-    });
+    console.info("Build outputs:");
 
     fs.readdirSync(outPath).forEach((f) => {
       outputAssets.push(f);
-      console.info("Build: " + path.join(outPath, f).replace(basePath, ""));
+      console.info(". " + path.join(outPath, f).replace(basePath, ""));
     });
 
     fs.writeFileSync(path.join(outPath, "assets.json"), JSON.stringify(outputAssets));
-    console.info("Build: Finish (" + (Math.abs(start.diffNow().get("milliseconds")) / 1000).toFixed(2) + "s)");
     return outputAssets;
   } catch (e) {
+    console.error("Error (" + w.getRanTimeFixed(2) + "s)");
     console.error(e);
   }
 
